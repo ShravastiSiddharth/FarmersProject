@@ -7,6 +7,7 @@ import {
   getAllUserBookings,
   getCurrentBookings,
   getUserCurrentBookings,
+  getBookingsRequest
 } from "../controllers/booking.controller.js";
 import { isAdmin, requireSignIn } from "../middlewares/authMiddleware.js";
 
@@ -30,6 +31,9 @@ router.get(
 
 //get all bookings by user id
 router.get("/get-allUserBookings/:id", requireSignIn, getAllUserBookings);
+
+// get all bookings request along with the user details who requested it
+router.get("/get-booking-requests/:userId", getBookingsRequest)
 
 //delete history of booking
 router.delete(

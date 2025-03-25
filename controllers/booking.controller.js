@@ -294,3 +294,33 @@ export const cancelBooking = async (req, res) => {
     console.log(error);
   }
 };
+
+
+export const getBookingsRequest = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Find all packages created by the given user
+    const userPackages = await Package.find({ userId }).select("_id packageName");
+    if (!userPackages.length) {
+      return res.status(404).json({ message: "No packages found for this user." });
+    }
+
+    // Extract package IDs
+    const packageIds = userPackages.map(pkg => pkg._id);
+
+    // Find bookings for the extracted package IDs
+    const bookings = await Booking.find({ packageDetails: { $in: packageIds } })
+      .populate("packageDetails", "packageName packageDescription packagePrice")
+      .populate("buyer", "username email phone address");
+
+    if (!bookings.length) {
+      return res.status(404).json({ message: "No bookings found for this user's packages." });
+    }
+
+    res.status(200).json({ bookings });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
