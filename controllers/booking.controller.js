@@ -1,20 +1,21 @@
 import Booking from "../models/booking.model.js";
 import Package from "../models/package.model.js";
 import { ObjectId } from "mongodb";
+import User from "../models/user.model.js";
 
 //book package
 export const bookPackage = async (req, res) => {
   try {
-    const { packageDetails, buyer, totalPrice, persons, date } = req.body;
+    const { packageDetails, buyer, date } = req.body;
 
-    if (req.user.id !== buyer) {
-      return res.status(401).send({
-        success: false,
-        message: "You can only buy on your account!",
-      });
-    }
+    // if (req.user.id !== buyer) {
+    //   return res.status(401).send({
+    //     success: false,
+    //     message: "You can only buy on your account!",
+    //   });
+    // }
 
-    if (!packageDetails || !buyer || !totalPrice || !persons || !date) {
+    if (!packageDetails || !buyer  || !date) {
       return res.status(200).send({
         success: false,
         message: "All fields are required!",
@@ -29,13 +30,19 @@ export const bookPackage = async (req, res) => {
         message: "Package Not Found!",
       });
     }
-
+    console.log("ValidPackage", validPackage)
+    const user = await User.findById(validPackage.userId)
     const newBooking = await Booking.create(req.body);
 
     if (newBooking) {
       return res.status(201).send({
         success: true,
         message: "Package Booked!",
+        owner: {
+          name: user.username,
+          email: user.email,
+          phone: user.phone
+        }
       });
     } else {
       return res.status(500).send({
@@ -52,11 +59,22 @@ export const bookPackage = async (req, res) => {
 export const getCurrentBookings = async (req, res) => {
   try {
     const searchTerm = req?.query?.searchTerm || "";
+    const userId = req.params.userId;
+    if(!userId) {
+      return res.status(400).send({message: "User ID not provided"})
+    }
     const bookings = await Booking.find({
       date: { $gt: new Date().toISOString() },
       status: "Booked",
+      buyer: userId
     })
-      .populate("packageDetails")
+      .populate({
+        path: "packageDetails",
+        populate: {
+          path: "userId",
+          select: "username email phone", // Fetch owner details
+        },
+      })
       // .populate("buyer", "username email")
       .populate({
         path: "buyer",

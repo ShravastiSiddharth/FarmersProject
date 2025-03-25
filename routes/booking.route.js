@@ -16,7 +16,7 @@ const router = express.Router();
 router.post("/book-package/:packageId", requireSignIn, bookPackage);
 
 //get all current bookings admin
-router.get("/get-currentBookings", requireSignIn, isAdmin, getCurrentBookings);
+router.get("/get-currentBookings/:userId", requireSignIn, isAdmin, getCurrentBookings);
 
 //get all bookings admin
 router.get("/get-allBookings", requireSignIn, isAdmin, getAllBookings);
