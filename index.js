@@ -23,7 +23,12 @@ mongoose
 
 app.use(
   cors({
-    origin: "*",
+    origin: "http://localhost:5173",
+    methods: 'GET, POST, PUT, DELETE, OPTIONS',
+    allowedHeaders: 'Content-Type, Accept, Accept-Language, Platform-Type, X-Request-ID, Authorization',
+    credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   })
 );
 app.use(express.json());
