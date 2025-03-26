@@ -1,74 +1,115 @@
+// backend/controllers/package.controller.js
 import Package from "../models/package.model.js";
 import braintree from "braintree";
 import dotenv from "dotenv";
 import Booking from "../models/booking.model.js";
+import multer from "multer";
+
 dotenv.config();
 
-//payment gateway
-// var gateway = new braintree.BraintreeGateway({
-//   environment: braintree.Environment.Sandbox,
-//   merchantId: process.env.BRAINTREE_MERCHANT_ID,
-//   publicKey: process.env.BRAINTREE_PUBLIC_KEY,
-//   privateKey: process.env.BRAINTREE_PRIVATE_KEY,
-// });
+// Configure multer for memory storage
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limit to 5MB per image
+}).array("equipmentImages", 5); // Allow up to 5 images
 
-//create package
+export const uploadMiddleware = (req, res, next) => {
+  upload(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).send({
+        success: false,
+        message: "Multer error: " + err.message,
+      });
+    } else if (err) {
+      return res.status(400).send({
+        success: false,
+        message: "Image upload failed: " + err.message,
+      });
+    }
+    next();
+  });
+};
+
+// Create package
 export const createPackage = async (req, res) => {
   try {
     const {
-      packageName,
-      packageDescription,
-      packageDestination,
-      packageDays,
-      packageNights,
-      packageAccommodation,
-      packageTransportation,
-      packageMeals,
-      packageActivities,
-      packagePrice,
-      packageDiscountPrice,
-      packageOffer,
-      packageImages,
-      userId
+      equipmentName,
+      equipmentDescription,
+      equipmentType,
+      dailyRentPrice,
+      weeklyRentPrice,
+      monthlyRentPrice,
+      availableQuantity,
+      condition,
+      manufacturer,
+      modelYear,
+      location,
+      rentalTerms,
+      isAvailable,
     } = req.body;
-        console.log(req.body)
+
+    // Validate required fields
     if (
-      !packageName ||
-      !packageDescription ||
-      !packageDestination ||
-      !packageAccommodation ||
-      !packageTransportation ||
-      !packageMeals ||
-      !packageActivities ||
-      !packageOffer === "" ||
-      !packageImages ||
-      !userId 
+      !equipmentName ||
+      !equipmentDescription ||
+      !equipmentType ||
+      !dailyRentPrice ||
+      !availableQuantity ||
+      !location
     ) {
-      return res.status(200).send({
+      return res.status(400).send({
         success: false,
-        message: "All fields are required!",
-      });
-    }
-    if (packagePrice < packageDiscountPrice) {
-      return res.status(200).send({
-        success: false,
-        message: "Regular price should be greater than discount price!",
-      });
-    }
-    if (packagePrice <= 0 || packageDiscountPrice < 0) {
-      return res.status(200).send({
-        success: false,
-        message: "Price should be greater than 0!",
-      });
-    }
-    if (packageDays <= 0 && packageNights <= 0) {
-      return res.status(200).send({
-        success: false,
-        message: "Provide days and nights!",
+        message: "All required fields must be provided!",
       });
     }
 
-    const newPackage = await Package.create(req.body);
+    if (dailyRentPrice < 0 || weeklyRentPrice < 0 || monthlyRentPrice < 0) {
+      return res.status(400).send({
+        success: false,
+        message: "Rental prices cannot be negative!",
+      });
+    }
+
+    if (availableQuantity < 1) {
+      return res.status(400).send({
+        success: false,
+        message: "Available quantity must be at least 1!",
+      });
+    }
+
+    // Process uploaded images
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).send({
+        success: false,
+        message: "At least one image is required!",
+      });
+    }
+
+    const equipmentImages = req.files.map((file) => ({
+      data: file.buffer,
+      contentType: file.mimetype,
+    }));
+
+    const newPackage = await Package.create({
+      userId: req.user.id, // Use the authenticated user's ID from JWT
+      equipmentName,
+      equipmentDescription,
+      equipmentType,
+      dailyRentPrice: Number(dailyRentPrice),
+      weeklyRentPrice: Number(weeklyRentPrice) || 0,
+      monthlyRentPrice: Number(monthlyRentPrice) || 0,
+      availableQuantity: Number(availableQuantity),
+      condition: condition || "Excellent",
+      manufacturer: manufacturer || "",
+      modelYear: Number(modelYear) || new Date().getFullYear(),
+      location,
+      rentalTerms: rentalTerms || "",
+      isAvailable: isAvailable === "true" || isAvailable === true,
+      equipmentImages,
+    });
+
     if (newPackage) {
       return res.status(201).send({
         success: true,
@@ -77,15 +118,20 @@ export const createPackage = async (req, res) => {
     } else {
       return res.status(500).send({
         success: false,
-        message: "Soemthing went wrong",
+        message: "Something went wrong",
       });
     }
   } catch (error) {
     console.log(error);
+    return res.status(500).send({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
-//get all packages
+// Get all packages
 export const getPackages = async (req, res) => {
   try {
     const searchTerm = req.query.searchTerm || "";
@@ -98,36 +144,53 @@ export const getPackages = async (req, res) => {
     }
 
     const sort = req.query.sort || "createdAt";
-
     const order = req.query.order || "desc";
 
     const packages = await Package.find({
       $or: [
-        { packageName: { $regex: searchTerm, $options: "i" } },
-        { packageDestination: { $regex: searchTerm, $options: "i" } },
+        { equipmentName: { $regex: searchTerm, $options: "i" } },
+        { location: { $regex: searchTerm, $options: "i" } },
       ],
-      packageOffer: offer,
+      isAvailable: offer,
     })
       .sort({ [sort]: order })
       .limit(limit)
       .skip(startIndex);
-    if (packages) {
+
+    if (packages.length > 0) {
+      // Transform packages to include Base64 image strings
+      const transformedPackages = packages.map((pkg) => {
+        const images = pkg.equipmentImages.map((img) => {
+          const base64String = img.data.toString("base64");
+          return `data:${img.contentType};base64,${base64String}`;
+        });
+        return {
+          ...pkg._doc, // Spread the document properties
+          equipmentImages: images, // Replace binary images with Base64 URLs
+        };
+      });
+
       return res.status(200).send({
         success: true,
-        packages,
+        packages: transformedPackages,
       });
     } else {
-      return res.status(500).send({
+      return res.status(404).send({
         success: false,
         message: "No Packages yet",
       });
     }
   } catch (error) {
     console.log(error);
+    return res.status(500).send({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
+// Get package data
 
-//get package data
 export const getPackageData = async (req, res) => {
   try {
     const packageData = await Package.findById(req?.params?.id);
@@ -137,24 +200,41 @@ export const getPackageData = async (req, res) => {
         message: "Package not found!",
       });
     }
+
+    // Transform equipmentImages to Base64 strings
+    const images = packageData.equipmentImages.map((img) => {
+      const base64String = img.data.toString("base64");
+      return `data:${img.contentType};base64,${base64String}`;
+    });
+
+    const transformedPackageData = {
+      ...packageData._doc,
+      equipmentImages: images,
+    };
+
     return res.status(200).send({
       success: true,
-      packageData,
+      packageData: transformedPackageData,
     });
   } catch (error) {
     console.log(error);
+    return res.status(500).send({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
-
-//update package
+// Update package
 export const updatePackage = async (req, res) => {
   try {
     const findPackage = await Package.findById(req.params.id);
-    if (!findPackage)
+    if (!findPackage) {
       return res.status(404).send({
         success: false,
         message: "Package not found!",
       });
+    }
 
     const updatedPackage = await Package.findByIdAndUpdate(
       req.params.id,
@@ -168,19 +248,35 @@ export const updatePackage = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
+    return res.status(500).send({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
-//delete package
+// Delete package
 export const deletePackage = async (req, res) => {
   try {
-    const deletePackage = await Package.findByIdAndDelete(req?.params?.id);
+    const deletedPackage = await Package.findByIdAndDelete(req?.params?.id);
+    if (!deletedPackage) {
+      return res.status(404).send({
+        success: false,
+        message: "Package not found!",
+      });
+    }
     return res.status(200).send({
       success: true,
       message: "Package Deleted!",
     });
   } catch (error) {
-    cnsole.log(error);
+    console.log(error); // Fixed typo 'cnsole' to 'console'
+    return res.status(500).send({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 
