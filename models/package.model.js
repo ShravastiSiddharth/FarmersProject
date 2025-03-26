@@ -1,3 +1,4 @@
+// backend/models/package.model.js
 import mongoose from "mongoose";
 
 const packageSchema = new mongoose.Schema(
@@ -7,66 +8,70 @@ const packageSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    packageName: {
+    equipmentName: {
       type: String,
       required: true,
     },
-    packageDescription: {
+    equipmentDescription: {
       type: String,
       required: true,
     },
-    packageDestination: {
+    equipmentType: {
       type: String,
       required: true,
     },
-    packageDays: {
-      type: String,
-      required: true,
-    },
-    packageNights: {
+    dailyRentPrice: {
       type: Number,
       required: true,
     },
-    packageAccommodation: {
-      type: String,
-      required: true,
+    weeklyRentPrice: {
+      type: Number,
+      default: 0,
     },
-    packageTransportation: {
-      type: String,
-      required: true,
+    monthlyRentPrice: {
+      type: Number,
+      default: 0,
     },
-    packageMeals: {
-      type: String,
-      required: true,
-    },
-    packageActivities: {
-      type: String,
-      required: true,
-    },
-    packagePrice: {
+    availableQuantity: {
       type: Number,
       required: true,
     },
-    packageDiscountPrice: {
+    condition: {
+      type: String,
+      default: "Excellent",
+    },
+    manufacturer: {
+      type: String,
+      default: "",
+    },
+    modelYear: {
       type: Number,
+      default: new Date().getFullYear(),
+    },
+    location: {
+      type: String,
       required: true,
     },
-    packageOffer: {
+    rentalTerms: {
+      type: String,
+      default: "",
+    },
+    isAvailable: {
       type: Boolean,
-      required: true,
+      default: true,
     },
-    packageRating: {
-      type: Number,
-      default: 0,
-    },
-    packageTotalRatings: {
-      type: Number,
-      default: 0,
-    },
-    packageImages: {
-      type: Array,
-      required: true,
-    },
+    equipmentImages: [
+      {
+        data: {
+          type: Buffer, // Store image as binary data
+          required: true,
+        },
+        contentType: {
+          type: String, // e.g., "image/jpeg", "image/png"
+          required: true,
+        },
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -6,13 +6,20 @@ import {
   deletePackage,
   getPackageData,
   getPackages,
+  uploadMiddleware,
   updatePackage,
 } from "../controllers/package.controller.js";
 
 const router = express.Router();
 
 //create package
-router.post("/create-package", requireSignIn, isAdmin, createPackage);
+router.post(
+  "/create-package",
+  requireSignIn,
+  isAdmin,
+  uploadMiddleware,
+  createPackage
+);
 
 //update package by id
 router.post("/update-package/:id", requireSignIn, isAdmin, updatePackage);
