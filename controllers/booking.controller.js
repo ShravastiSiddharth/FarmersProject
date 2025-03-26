@@ -318,7 +318,7 @@ export const getBookingsRequest = async (req, res) => {
       return res.status(404).json({ message: "No bookings found for this user's packages." });
     }
 
-    res.status(200).json({ bookings });
+    res.status(200).json({ bookings, success: true });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal server error" });

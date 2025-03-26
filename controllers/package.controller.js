@@ -31,7 +31,7 @@ export const createPackage = async (req, res) => {
       packageImages,
       userId
     } = req.body;
-        console.log(userId)
+        console.log(req.body)
     if (
       !packageName ||
       !packageDescription ||
